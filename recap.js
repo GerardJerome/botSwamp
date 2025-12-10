@@ -118,9 +118,6 @@ async function generateSeasonRecap(client) {
             const queue = stats.find(q => q.queueType === 'RANKED_SOLO_5x5');
             
             let fieldName = `${player.gameName} #${player.tagLine}`;
-            if (player.discordId) {
-                fieldName += ` (<@${player.discordId}>)`;
-            }
             let fieldValue = "";
             let totalLp = -1;
 
@@ -219,9 +216,6 @@ async function generateWeeklyRecap(client) {
             if (!weeklyStats[player.puuid]) weeklyStats[player.puuid] = {};
             
             let fieldName = `${player.gameName} #${player.tagLine}`;
-            if (player.discordId) {
-                fieldName += ` (<@${player.discordId}>)`;
-            }
             let fieldValue = "";
             let totalLp = -1;
 
