@@ -336,7 +336,10 @@ client.on('interactionCreate', async interaction => {
                     const currentTotal = convertToTotalLp(soloQueue.tier, soloQueue.rank, soloQueue.leaguePoints);
                     const startTotal = convertToTotalLp(startOfDay.tier, startOfDay.rank, startOfDay.lp);
                     const diff = currentTotal - startTotal;
-                    const gamesToday = (soloQueue.wins + soloQueue.losses) - (startOfDay.wins + startOfDay.losses);
+                    
+                    const winsToday = soloQueue.wins - startOfDay.wins;
+                    const lossesToday = soloQueue.losses - startOfDay.losses;
+                    const gamesToday = winsToday + lossesToday;
                     
                     const sign = diff >= 0 ? "+" : "";
                     let emoji = "😐";
@@ -345,7 +348,25 @@ client.on('interactionCreate', async interaction => {
                     if (gamesToday === 0) emoji = "💤";
 
                     desc += `\n**Aujourd'hui (depuis 6h) :**\n`;
-                    desc += `${emoji} **${sign}${diff} LP** (${gamesToday} games)`;
+                    desc += `${emoji} **${sign}${diff} LP**`;
+
+                    if (gamesToday > 0) {
+                        desc += `\n📊 **${gamesToday} games** : ${winsToday} Win - ${lossesToday} Loose\n`;
+                        
+                        const dailyWinrate = (winsToday / gamesToday) * 100;
+                        let dailyComment = "";
+                        
+                        if (dailyWinrate === 100) dailyComment = "👑 Intouchable aujourd'hui.";
+                        else if (dailyWinrate >= 60) dailyComment = "🔥 T'es chaud, continue.";
+                        else if (dailyWinrate >= 50) dailyComment = "✅ Positif, c'est l'essentiel.";
+                        else if (dailyWinrate >= 40) dailyComment = "😐 C'est laborieux...";
+                        else if (dailyWinrate >= 20) dailyComment = "💀 Arrête de tag, pour le bien de tous.";
+                        else dailyComment = "🤡 T'as décidé de perdre exprès ?";
+                        
+                        desc += `*${dailyComment}*`;
+                    } else {
+                        desc += ` (Pas de game)`;
+                    }
                 } else {
                     desc += `\n*Pas de données enregistrées ce matin (6h).*`;
                 }
