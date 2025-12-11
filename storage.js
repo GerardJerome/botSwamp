@@ -3,6 +3,7 @@ const path = require('path');
 
 const DATA_DIR = path.join(__dirname, 'data');
 const FILE_PATH = path.join(DATA_DIR, 'stats.json');
+const DAILY_FILE_PATH = path.join(DATA_DIR, 'daily_stats.json');
 
 // Ensure data directory and file exist
 if (!fs.existsSync(DATA_DIR)) {
@@ -11,6 +12,10 @@ if (!fs.existsSync(DATA_DIR)) {
 
 if (!fs.existsSync(FILE_PATH)) {
     fs.writeFileSync(FILE_PATH, JSON.stringify({}));
+}
+
+if (!fs.existsSync(DAILY_FILE_PATH)) {
+    fs.writeFileSync(DAILY_FILE_PATH, JSON.stringify({}));
 }
 
 const TIERS = ["IRON", "BRONZE", "SILVER", "GOLD", "PLATINUM", "EMERALD", "DIAMOND", "MASTER", "GRANDMASTER", "CHALLENGER"];
@@ -154,4 +159,13 @@ function getLpDiff(puuid, queueType, currentLp, currentTier, currentRank) {
     }
 }
 
-module.exports = { saveStats, getLpDiff };
+function saveDailyStats(data) {
+    fs.writeFileSync(DAILY_FILE_PATH, JSON.stringify(data, null, 2));
+}
+
+function getDailyStats() {
+    if (!fs.existsSync(DAILY_FILE_PATH)) return {};
+    return JSON.parse(fs.readFileSync(DAILY_FILE_PATH));
+}
+
+module.exports = { saveStats, getLpDiff, convertToTotalLp, saveDailyStats, getDailyStats };
