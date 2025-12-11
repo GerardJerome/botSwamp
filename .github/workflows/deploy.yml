@@ -1,0 +1,31 @@
+name: Deploy to Compute Engine
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        port: 22
+        script: |
+          # Aller dans le dossier du projet (vérifie le nom du dossier sur ton serveur)
+          cd botSwamp
+          
+          # Récupérer les dernières modifications
+          git pull origin master
+          
+          # Installer les nouvelles dépendances si besoin
+          npm install
+          
+          # Redémarrer le bot
+          pm2 restart botLoL

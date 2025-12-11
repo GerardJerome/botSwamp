@@ -62,7 +62,7 @@ function setRecapSchedule(schedule) {
 
 function getRecapSchedule() {
     const config = readJson(CONFIG_FILE, {});
-    return config.schedule || '0 9 * * 1'; // Default: Monday 9:00 AM
+    return config.schedule || '0 4 * * 0,3'; // Default: Wednesday & Sunday 4:00 AM
 }
 
 // Rank value for comparison
