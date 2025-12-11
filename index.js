@@ -376,48 +376,6 @@ client.on('interactionCreate', async interaction => {
         }
         return;
     }
-                                // Purple (35) if >= 70
-                                let color = "0;37"; // Default White
-                                let emoji = "";
-
-    // Clean up old code block
-    /* 
-       Old logic removed to simplify /stats command as requested.
-       The new logic above handles the daily diff and optional arguments.
-    */
-                    const result = match.win ? '✅ Win' : '❌ Loss';
-                    const kda = `${match.kills}/${match.deaths}/${match.assists}`;
-                    historyText += `${result} | **${match.championName}** | ${kda}\n`;
-                });
-                embed.addFields({ name: 'Last 5 Matches', value: historyText, inline: false });
-            }
-
-            if (commandName === 'stats') {
-                await interaction.editReply({ embeds: [embed] });
-            } else if (commandName === 'recap') {
-                if (!process.env.DISCORD_WEBHOOK_URL) {
-                    await interaction.editReply('Webhook URL is not configured.');
-                    return;
-                }
-                const webhookClient = new WebhookClient({ url: process.env.DISCORD_WEBHOOK_URL });
-                await webhookClient.send({
-                    content: `Recap for ${gameName}#${tagLine}`,
-                    embeds: [embed],
-                });
-                await interaction.editReply('Recap sent to webhook!');
-            }
-
-        } catch (error) {
-            console.error(error);
-            // Only try to editReply if we deferred or replied, otherwise reply
-            if (interaction.deferred || interaction.replied) {
-                await interaction.editReply('Error fetching stats. Please check the Riot ID and try again.').catch(console.error);
-            } else {
-                // If deferReply failed, we might not be able to reply at all, but let's try
-                await interaction.reply({ content: 'Error fetching stats.', ephemeral: true }).catch(console.error);
-            }
-        }
-    }
     } catch (error) {
         // Ignore "Unknown interaction" (10062) and "Already acknowledged" (40060) errors
         if (error.code === 10062 || error.code === 40060) {
