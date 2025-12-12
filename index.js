@@ -60,11 +60,12 @@ const commands = [
         .setDescription('Get ranked stats for a player (defaults to linked account)')
         .addStringOption(option => 
             option.setName('name')
-                .setDescription('Riot ID Game Name (Optional if tracked)')
-                .setRequired(false))
+                .setDescription('Riot ID Game Name (or select from list)')
+                .setRequired(false)
+                .setAutocomplete(true))
         .addStringOption(option => 
             option.setName('tag')
-                .setDescription('Riot ID Tag Line (Optional if tracked)')
+                .setDescription('Riot ID Tag Line (Optional if selected from list)')
                 .setRequired(false)),
     new SlashCommandBuilder()
         .setName('recap')
@@ -171,6 +172,21 @@ client.on('ready', () => {
 
 client.on('interactionCreate', async interaction => {
     try {
+        // Handle Autocomplete
+        if (interaction.isAutocomplete()) {
+            const focusedValue = interaction.options.getFocused();
+            const players = getTrackedPlayers();
+            const filtered = players.filter(p => 
+                p.gameName.toLowerCase().startsWith(focusedValue.toLowerCase()) ||
+                `${p.gameName}#${p.tagLine}`.toLowerCase().includes(focusedValue.toLowerCase())
+            );
+            
+            await interaction.respond(
+                filtered.slice(0, 25).map(p => ({ name: `${p.gameName} #${p.tagLine}`, value: `${p.gameName}#${p.tagLine}` }))
+            );
+            return;
+        }
+
         if (!interaction.isChatInputCommand()) return;
 
         const { commandName } = interaction;
@@ -295,6 +311,13 @@ client.on('interactionCreate', async interaction => {
 
     if (commandName === 'stats') {
         await interaction.deferReply();
+
+        // Handle Autocomplete value (Name#Tag)
+        if (gameName && gameName.includes('#') && !tagLine) {
+            const parts = gameName.split('#');
+            gameName = parts[0];
+            tagLine = parts[1];
+        }
 
         // Auto-detect user if no args
         if (!gameName || !tagLine) {
