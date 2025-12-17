@@ -310,6 +310,7 @@ async function generateWeeklyRecap(client) {
             console.error(`Error processing ${player.gameName}:`, err);
             playerResults.push({ totalLp: -2, fieldName: `${player.gameName} #${player.tagLine}`, fieldValue: "❌ Erreur lors de la récupération" });
         }
+        fieldValue+= '\n =================================================='
     }
 
     // Sort by Total LP descending
