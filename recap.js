@@ -199,7 +199,7 @@ async function generateWeeklyRecap(client) {
     }
 
     const embed = new EmbedBuilder()
-        .setTitle("📅 Récapitulatif Hebdomadaire")
+        .setTitle("📅 Récapitulatif Hebdomadaire (mais en faite c'est le mercredi et le dimanche)")
         .setColor(0x0099FF)
         .setTimestamp();
     
@@ -251,7 +251,7 @@ async function generateWeeklyRecap(client) {
                     const sign = diff >= 0 ? "+" : "";
                     
                     if (gamesPlayed <= 0) {
-                        fieldValue = "💤 **Inactif cette semaine**\n";
+                        fieldValue = "💤 **Inactif cette période**\n";
                         fieldValue += `Actuel: **${queue.tier} ${queue.rank}** - ${queue.leaguePoints} LP\n`;
                         if (diff !== 0) {
                              fieldValue += `(Évolution: ${sign}${diff} LP)\n`;
