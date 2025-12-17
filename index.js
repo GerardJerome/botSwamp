@@ -322,15 +322,93 @@ client.on('interactionCreate', async interaction => {
         // Auto-detect user if no args
         if (!gameName || !tagLine) {
             const tracked = getTrackedPlayers();
-            const linkedPlayer = tracked.find(p => p.discordId === interaction.user.id);
+            const linkedPlayers = tracked.filter(p => p.discordId === interaction.user.id);
             
-            if (linkedPlayer) {
-                gameName = linkedPlayer.gameName;
-                tagLine = linkedPlayer.tagLine;
-            } else {
+            if (linkedPlayers.length === 0) {
                 await interaction.editReply("❌ Tu n'as pas spécifié de pseudo et ton compte Discord n'est pas lié.\nUtilise `/track` pour lier ton compte ou précise `name` et `tag`.");
                 return;
             }
+
+            // If multiple accounts, show all
+            const embeds = [];
+            for (const player of linkedPlayers) {
+                try {
+                    const { summoner, stats } = await getFullStats(player.gameName, player.tagLine);
+                    const opggUrl = `https://www.op.gg/summoners/euw/${encodeURIComponent(player.gameName)}-${encodeURIComponent(player.tagLine)}`;
+
+                    const embed = new EmbedBuilder()
+                        .setTitle(`Stats pour ${player.gameName}#${player.tagLine}`)
+                        .setURL(opggUrl)
+                        .setThumbnail(`http://ddragon.leagueoflegends.com/cdn/13.24.1/img/profileicon/${summoner.profileIconId}.png`)
+                        .setTimestamp();
+
+                    const soloQueue = stats.find(q => q.queueType === 'RANKED_SOLO_5x5');
+                    
+                    if (soloQueue) {
+                        const winrate = Math.round((soloQueue.wins / (soloQueue.wins + soloQueue.losses)) * 100);
+                        let desc = `**${soloQueue.tier} ${soloQueue.rank}** - ${soloQueue.leaguePoints} LP\n`;
+                        desc += `Wins: ${soloQueue.wins} | Losses: ${soloQueue.losses} | WR: ${winrate}%\n`;
+
+                        // Daily Diff Logic
+                        const dailyStats = getDailyStats();
+                        const startOfDay = dailyStats[summoner.puuid];
+
+                        if (startOfDay) {
+                            const currentTotal = convertToTotalLp(soloQueue.tier, soloQueue.rank, soloQueue.leaguePoints);
+                            const startTotal = convertToTotalLp(startOfDay.tier, startOfDay.rank, startOfDay.lp);
+                            const diff = currentTotal - startTotal;
+                            
+                            const winsToday = soloQueue.wins - startOfDay.wins;
+                            const lossesToday = soloQueue.losses - startOfDay.losses;
+                            const gamesToday = winsToday + lossesToday;
+                            
+                            const sign = diff >= 0 ? "+" : "";
+                            let emoji = "😐";
+                            if (diff > 0) emoji = "📈";
+                            if (diff < 0) emoji = "📉";
+                            if (gamesToday === 0) emoji = "💤";
+
+                            desc += `\n**Aujourd'hui (depuis 6h) :**\n`;
+                            desc += `${emoji} **${sign}${diff} LP**`;
+
+                            if (gamesToday > 0) {
+                                desc += `\n📊 **${gamesToday} games** : ${winsToday} Win - ${lossesToday} Loose\n`;
+                                
+                                const dailyWinrate = (winsToday / gamesToday) * 100;
+                                let dailyComment = "";
+                                
+                                if (dailyWinrate === 100) dailyComment = "👑 Intouchable aujourd'hui.";
+                                else if (dailyWinrate >= 60) dailyComment = "🔥 T'es chaud, continue.";
+                                else if (dailyWinrate >= 50) dailyComment = "✅ Positif, c'est l'essentiel.";
+                                else if (dailyWinrate >= 40) dailyComment = "😐 C'est laborieux...";
+                                else if (dailyWinrate >= 20) dailyComment = "💀 Arrête de tag, pour le bien de tous.";
+                                else dailyComment = "🤡 T'as décidé de perdre exprès ?";
+                                
+                                desc += `*${dailyComment}*`;
+                            } else {
+                                desc += ` (Pas de game)`;
+                            }
+                        } else {
+                            desc += `\n*Pas de données enregistrées ce matin (6h).*`;
+                        }
+
+                        embed.setDescription(desc);
+                        embed.setColor(0x0099FF);
+                    } else {
+                        embed.setDescription("Pas de classement SoloQ.");
+                    }
+                    embeds.push(embed);
+                } catch (err) {
+                    console.error(`Error fetching stats for ${player.gameName}:`, err);
+                }
+            }
+            
+            if (embeds.length > 0) {
+                await interaction.editReply({ embeds: embeds });
+            } else {
+                await interaction.editReply("❌ Impossible de récupérer les stats pour vos comptes liés.");
+            }
+            return;
         }
 
         try {
