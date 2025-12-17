@@ -66,6 +66,10 @@ const commands = [
         .addStringOption(option => 
             option.setName('tag')
                 .setDescription('Riot ID Tag Line (Optional if selected from list)')
+                .setRequired(false))
+        .addUserOption(option =>
+            option.setName('user')
+                .setDescription('Discord user to lookup')
                 .setRequired(false)),
     new SlashCommandBuilder()
         .setName('recap')
@@ -308,6 +312,7 @@ client.on('interactionCreate', async interaction => {
 
     let gameName = interaction.options.getString('name');
     let tagLine = interaction.options.getString('tag');
+    const targetUser = interaction.options.getUser('user');
 
     if (commandName === 'stats') {
         await interaction.deferReply();
@@ -319,13 +324,25 @@ client.on('interactionCreate', async interaction => {
             tagLine = parts[1];
         }
 
-        // Auto-detect user if no args
-        if (!gameName || !tagLine) {
+        // Determine target Discord ID (explicit user or implicit self)
+        let targetDiscordId = null;
+        if (targetUser) {
+            targetDiscordId = targetUser.id;
+        } else if (!gameName || !tagLine) {
+            targetDiscordId = interaction.user.id;
+        }
+
+        // If looking up by Discord ID
+        if (targetDiscordId) {
             const tracked = getTrackedPlayers();
-            const linkedPlayers = tracked.filter(p => p.discordId === interaction.user.id);
+            const linkedPlayers = tracked.filter(p => p.discordId === targetDiscordId);
             
             if (linkedPlayers.length === 0) {
-                await interaction.editReply("❌ Tu n'as pas spécifié de pseudo et ton compte Discord n'est pas lié.\nUtilise `/track` pour lier ton compte ou précise `name` et `tag`.");
+                if (targetUser) {
+                    await interaction.editReply(`❌ L'utilisateur ${targetUser.username} n'a pas de compte LoL lié.`);
+                } else {
+                    await interaction.editReply("❌ Tu n'as pas spécifié de pseudo et ton compte Discord n'est pas lié.\nUtilise `/track` pour lier ton compte ou précise `name` et `tag`.");
+                }
                 return;
             }
 
@@ -406,7 +423,7 @@ client.on('interactionCreate', async interaction => {
             if (embeds.length > 0) {
                 await interaction.editReply({ embeds: embeds });
             } else {
-                await interaction.editReply("❌ Impossible de récupérer les stats pour vos comptes liés.");
+                await interaction.editReply("❌ Impossible de récupérer les stats pour les comptes liés.");
             }
             return;
         }
