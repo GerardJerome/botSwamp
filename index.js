@@ -317,36 +317,30 @@ client.on('interactionCreate', async interaction => {
     if (commandName === 'stats') {
         await interaction.deferReply();
 
-        // Handle Autocomplete value (Name#Tag)
-        if (gameName && gameName.includes('#') && !tagLine) {
-            const parts = gameName.split('#');
-            gameName = parts[0];
-            tagLine = parts[1];
-        }
-
-        // Determine target Discord ID (explicit user or implicit self)
         let targetDiscordId = null;
+
+        // Determine if we are looking for linked accounts or a specific input
         if (targetUser) {
+            // Case 1: Specific user mentioned -> Show their linked accounts
             targetDiscordId = targetUser.id;
-        } else if (!gameName || !tagLine) {
+        } else if (!gameName && !tagLine) {
+            // Case 2: No arguments -> Show my linked accounts
             targetDiscordId = interaction.user.id;
         }
 
-        // If looking up by Discord ID
+        // --- Multi-Account Path ---
         if (targetDiscordId) {
             const tracked = getTrackedPlayers();
             const linkedPlayers = tracked.filter(p => p.discordId === targetDiscordId);
             
             if (linkedPlayers.length === 0) {
-                if (targetUser) {
-                    await interaction.editReply(`❌ L'utilisateur ${targetUser.username} n'a pas de compte LoL lié.`);
-                } else {
-                    await interaction.editReply("❌ Tu n'as pas spécifié de pseudo et ton compte Discord n'est pas lié.\nUtilise `/track` pour lier ton compte ou précise `name` et `tag`.");
-                }
+                const msg = targetUser 
+                    ? `❌ <@${targetDiscordId}> n'a aucun compte lié.` 
+                    : "❌ Tu n'as pas spécifié de pseudo et ton compte Discord n'est pas lié.\nUtilise `/track` pour lier ton compte ou précise `name` et `tag`.";
+                await interaction.editReply(msg);
                 return;
             }
 
-            // If multiple accounts, show all
             const embeds = [];
             for (const player of linkedPlayers) {
                 try {
@@ -368,7 +362,8 @@ client.on('interactionCreate', async interaction => {
 
                         // Daily Diff Logic
                         const dailyStats = getDailyStats();
-                        const startOfDay = dailyStats[summoner.puuid];
+                        const dailyKey = summoner.puuid; // Ensure consistent key usage
+                        const startOfDay = dailyStats[dailyKey];
 
                         if (startOfDay) {
                             const currentTotal = convertToTotalLp(soloQueue.tier, soloQueue.rank, soloQueue.leaguePoints);
@@ -394,19 +389,19 @@ client.on('interactionCreate', async interaction => {
                                 const dailyWinrate = (winsToday / gamesToday) * 100;
                                 let dailyComment = "";
                                 
-                                if (dailyWinrate === 100) dailyComment = "👑 Intouchable aujourd'hui.";
-                                else if (dailyWinrate >= 60) dailyComment = "🔥 T'es chaud, continue.";
-                                else if (dailyWinrate >= 50) dailyComment = "✅ Positif, c'est l'essentiel.";
-                                else if (dailyWinrate >= 40) dailyComment = "😐 C'est laborieux...";
-                                else if (dailyWinrate >= 20) dailyComment = "💀 Arrête de tag, pour le bien de tous.";
-                                else dailyComment = "🤡 T'as décidé de perdre exprès ?";
+                                if (dailyWinrate === 100) dailyComment = "👑 Intouchable.";
+                                else if (dailyWinrate >= 60) dailyComment = "🔥 Chaud !";
+                                else if (dailyWinrate >= 50) dailyComment = "✅ Positif.";
+                                else if (dailyWinrate >= 40) dailyComment = "😐 Laborieux.";
+                                else if (dailyWinrate >= 20) dailyComment = "💀 Stop.";
+                                else dailyComment = "🤡 ...";
                                 
-                                desc += `*${dailyComment}*`;
+                                desc += ` *${dailyComment}*`;
                             } else {
                                 desc += ` (Pas de game)`;
                             }
                         } else {
-                            desc += `\n*Pas de données enregistrées ce matin (6h).*`;
+                            desc += `\n*Pas de données à 6h.*`;
                         }
 
                         embed.setDescription(desc);
@@ -416,16 +411,41 @@ client.on('interactionCreate', async interaction => {
                     }
                     embeds.push(embed);
                 } catch (err) {
-                    console.error(`Error fetching stats for ${player.gameName}:`, err);
+                    let errorMsg = "❌ Erreur lors de la récupération.";
+                    
+                    // Check for 404 (Not Found) or 403 (Forbidden/Key Expired)
+                    const status = err.response?.status || err.status;
+                    
+                    if (status === 404) {
+                        errorMsg = "❌ **Invocateur introuvable (404)**.\nLe pseudo ou le tag est incorrect, ou le compte n'existe pas en EUW.";
+                    } else if (status === 403) {
+                        errorMsg = "❌ **Clé API Riot expirée (403)**.\nContactez l'admin du bot.";
+                    }
+
+                    console.error(`Error fetching stats for ${player.gameName}:`, err.message || status); 
+                    
+                    const errEmbed = new EmbedBuilder()
+                        .setTitle(`Stats pour ${player.gameName}#${player.tagLine}`)
+                        .setDescription(errorMsg)
+                        .setColor(0xFF0000);
+                    embeds.push(errEmbed);
                 }
             }
             
             if (embeds.length > 0) {
-                await interaction.editReply({ embeds: embeds });
+                const header = targetUser ? `Comptes liés à <@${targetDiscordId}> :` : "Tes comptes liés :";
+                await interaction.editReply({ content: header, embeds: embeds });
             } else {
-                await interaction.editReply("❌ Impossible de récupérer les stats pour les comptes liés.");
+                await interaction.editReply("❌ Erreur interne.");
             }
             return;
+        }
+
+        // --- Single Account Path (Explicit Name/Tag) ---
+        if (gameName && gameName.includes('#') && !tagLine) {
+            const parts = gameName.split('#');
+            gameName = parts[0];
+            tagLine = parts[1];
         }
 
         try {
@@ -474,19 +494,19 @@ client.on('interactionCreate', async interaction => {
                         const dailyWinrate = (winsToday / gamesToday) * 100;
                         let dailyComment = "";
                         
-                        if (dailyWinrate === 100) dailyComment = "👑 Intouchable aujourd'hui.";
-                        else if (dailyWinrate >= 60) dailyComment = "🔥 T'es chaud, continue.";
-                        else if (dailyWinrate >= 50) dailyComment = "✅ Positif, c'est l'essentiel.";
-                        else if (dailyWinrate >= 40) dailyComment = "😐 C'est laborieux...";
-                        else if (dailyWinrate >= 20) dailyComment = "💀 Arrête de tag, pour le bien de tous.";
-                        else dailyComment = "🤡 T'as décidé de perdre exprès ?";
+                        if (dailyWinrate === 100) dailyComment = "👑 Intouchable.";
+                        else if (dailyWinrate >= 60) dailyComment = "🔥 Chaud !";
+                        else if (dailyWinrate >= 50) dailyComment = "✅ Positif.";
+                        else if (dailyWinrate >= 40) dailyComment = "😐 Laborieux.";
+                        else if (dailyWinrate >= 20) dailyComment = "💀 Stop.";
+                        else dailyComment = "🤡 ...";
                         
-                        desc += `*${dailyComment}*`;
+                        desc += ` *${dailyComment}*`;
                     } else {
                         desc += ` (Pas de game)`;
                     }
                 } else {
-                    desc += `\n*Pas de données enregistrées ce matin (6h).*`;
+                    desc += `\n*Pas de données à 6h.*`;
                 }
 
                 embed.setDescription(desc);
@@ -498,7 +518,7 @@ client.on('interactionCreate', async interaction => {
             await interaction.editReply({ embeds: [embed] });
         } catch (error) {
             console.error(error);
-            await interaction.editReply(`❌ Erreur lors de la récupération des stats pour **${gameName}#${tagLine}**.`);
+            await interaction.editReply(`❌ Erreur : Impossible de trouver **${gameName}#${tagLine}**. (Vérifie le pseudo ou la région EUW et l'API Key)`);
         }
         return;
     }
